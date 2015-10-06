@@ -8,6 +8,7 @@ public class Rsu {
   public Point center;
   public double radius;
   public RsuType rsu_type;
+  public int current_vehicles;
 
   public Rsu(Point center, RsuType rsu_type) {
     this.center = center;
@@ -27,5 +28,9 @@ public class Rsu {
 
   public boolean belongsToCircle(Point x) {
     return radius >= Point.twoPointsDistance(center, x);
+  }
+
+  public double getCapacity(){
+    return rsu_type.capacity;
   }
 }

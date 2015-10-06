@@ -19,24 +19,29 @@ public class Greedy {
   public static ArrayList<Segment> segments = new ArrayList<Segment>();
   public static ArrayList<RsuType> rsu_types = new ArrayList<RsuType>();
   public static double qos = 0;
-  public static double coverage_acceptance = 0.95;
-  public static double coverage_stop = 0.8;
+  public static double coverage_stop = 0.9;
+  public static int coordinates_amount = 121;
 
   public static void main(String[] args) {
     loadSegments();
     loadRsuTypes();
 
-    coverage_acceptance = Double.parseDouble(args[0]);
-    coverage_stop = Double.parseDouble(args[1]);
+    coverage_stop = Double.parseDouble(args[0]);
 
-    // Ascending order
-    Collections.sort(sorted_segments);
-
-    ArrayList<Segment> intersected_segments =  new ArrayList<Segment>();
-    for (int i = sorted_segments.size() - 1; i >= 0; i--) {
+    boolean every_segment_covered = false;
+    while (!every_segment_covered) {
+      // Ascending order
+      int i = sorted_segments.size() - 1;
+      Collections.sort(sorted_segments);
       Segment segment = sorted_segments.get(i);
 
-      if (!intersected_segments.contains(segment)) {
+      every_segment_covered = true;
+      while((segment.rsu != null || segment.vehicles_covered == segment.vehicles_amount) && i > 0) {
+        i--;
+        segment = sorted_segments.get(i);
+      }
+
+      if (i > 0) {
         Random generator = new Random();
         double rsu_position = generator.nextDouble();
 
@@ -44,7 +49,8 @@ public class Greedy {
         Rsu rsu = new Rsu(rsu_center, rsu_types.get(rsu_types.size() - 1));
         segment.rsu = rsu;
 
-        intersected_segments = findIntersections();
+        calculateQos();
+        every_segment_covered = false;
       }
     }
 
@@ -55,20 +61,21 @@ public class Greedy {
     System.out.println(qos);
     System.out.println("COST: ");
     double cost = 0;
-    for (Segment segment : segments) {
+    for (Segment segment : sorted_segments) {
       if (segment.rsu != null) {
         cost += segment.rsu.rsu_type.cost;
       }
     }
     System.out.println(cost);
 
+    Collections.sort(sorted_segments);
     double qos_found = qos;
 
     while (qos >= qos_found * coverage_stop) {
       double[] qos_loss = new double[segments.size()];
       double old_qos = qos;
 
-      // System.out.println("QOS LOSS:");
+      System.out.println("WHILE");
       for (int i = 0; i < sorted_segments.size(); i++) {
         Segment segment = sorted_segments.get(i);
 
@@ -85,7 +92,7 @@ public class Greedy {
             segment.rsu.setRsuType(rsu_types.get(index_of_type - 1));
           }
 
-          findIntersections();
+          calculateQos();
           qos_loss[i] = old_qos - qos;
 
           if (index_of_type == 0) {
@@ -98,22 +105,27 @@ public class Greedy {
 
       int min = 0;
       for (int i = 1; i < sorted_segments.size(); i++) {
+        // System.out.println(qos_loss[i]);
         if (qos_loss[i] < qos_loss[min]) {
           min = i;
         }
       }
 
+      System.out.println(min);
       Segment segment = sorted_segments.get(min);
       RsuType rsu_type = segment.rsu.rsu_type;
       int index_of_type = rsu_types.indexOf(rsu_type);
 
       if (index_of_type == 0) {
+        System.out.println("sacamos antena");
         segment.rsu = null;
       }else {
+        System.out.println("bajamos");
         segment.rsu.setRsuType(rsu_types.get(index_of_type - 1));
       }
 
-      findIntersections();
+      calculateQos();
+      System.out.println(qos);
     }
 
     System.out.println("RESULT: ");
@@ -214,85 +226,147 @@ public class Greedy {
     return new Point(x, y);
   }
 
-  private static ArrayList<Segment> findIntersections() {
-    ArrayList<Segment> intersected_segments = new ArrayList<Segment>();
+  private static void calculateQos() {
     qos = 0;
 
+    // Remove previous calculations
     for (Segment segment : segments){
+      if (segment.rsu != null) {
+        segment.rsu.current_vehicles = 0;
+      }
+      segment.vehicles_covered = 0;
+    }
+    // Iterate through the segments
+    for (Segment rsu_segment : segments){
+      if (rsu_segment.rsu != null) {
 
-      double divitions = 10;
-      double module_section = segment.distance() / divitions;
-      double intersections = 0;
+        Rsu rsu = rsu_segment.rsu;
+        for (Segment segment : segments){
+          double segment_coverage = 0;
+          double segment_length = segment.distance();
 
-      double coverered_distance = 0;
+          // If rsu i belongs to k segment
+          if (rsu_segment == segment){
+            segment_coverage = segment_length / rsu.radius;
+          }else {
+            boolean start_inside = rsu.radius > Point.twoPointsDistance(rsu.center, segment.start);
+            boolean end_inside = rsu.radius > Point.twoPointsDistance(rsu.center, segment.end);
 
-      double x_length = Math.abs(segment.start.x - segment.end.x) / divitions;
-      double y_length = Math.abs(segment.start.y - segment.end.y) / divitions;
+            if (start_inside && end_inside){
+              segment_coverage = segment_length;
+            }
+            else if (start_inside || end_inside){
+              //Hay un punto adentro y uno afuera
+              double alpha;
+              double center_extreme_distance;
 
-      for (int j = 0; j < divitions; j++) {
-        double x = segment.start.x;
-        if (segment.start.x < segment.end.x) {
-          x = segment.start.x + j * x_length;
-        }else if (segment.start.x > segment.end.x) {
-          x = segment.start.x - j * x_length;
-        }
+              if (start_inside){
+                alpha = Segment.angleBetweenLines(new Segment(rsu.center, segment.start), segment);
+                center_extreme_distance = Point.twoPointsDistance(rsu.center, segment.start);
+              }else{
+                alpha = Segment.angleBetweenLines(new Segment(rsu.center, segment.end), segment);
+                center_extreme_distance = Point.twoPointsDistance(rsu.center, segment.end);
+              }
 
-        double y = segment.start.y;
-        if (segment.start.y < segment.end.y) {
-          y = segment.start.y + j * y_length;
-        }else if (segment.start.y > segment.end.y) {
-          y = segment.start.y - j * y_length;
-        }
+              if (alpha != 0){
+                double beta = Math.asin(center_extreme_distance * Math.sin(alpha) / (double)rsu.radius);
+                segment_coverage = segment_length / (Math.sin(Math.PI - alpha - beta) * rsu.radius / Math.sin(alpha));
+              }
+              else{
+                //Los 3 puntos están alineados
+                if (start_inside){
+                  segment_coverage = segment_length / (rsu.radius - Point.twoPointsDistance(rsu.center, segment.start));
+                }
+                else{
+                  segment_coverage = segment_length / (rsu.radius - Point.twoPointsDistance(rsu.center, segment.end));
+                }
+              }
+            }
+            else if (rsu.center.pointToSegmentDistance(segment) < rsu.radius){
+              //La recta intersecta el circulo, falta ver si el segmento tambien
+              double m = rsu.center.pointToSegmentDistance(segment);
+              double dAC = Point.twoPointsDistance(rsu.center, segment.start);
+              double dBC = Point.twoPointsDistance(rsu.center, segment.end);
+              double dAB = segment.distance();
+              double dAQ = Math.sqrt(Math.pow(dAC, 2) - Math.pow(m, 2));
+              double dQB = Math.sqrt(Math.pow(dBC, 2) - Math.pow(m, 2));
+              if (dAQ < dAB && dQB < dAB){
+                  //El segmento intersecta el circulo
+                  double lambda = Math.sqrt(Math.pow(rsu.radius,2) - Math.pow(m,2));
+                  segment_coverage = segment_length / (2 * lambda);
+              }
+            }
 
-        Point aux_point = new Point(x, y);
-        for (Segment aux_segment : segments) {
-          Rsu rsu = aux_segment.rsu;
-          if (rsu != null && rsu.belongsToCircle(aux_point)) {
-            intersections++;
-            break;
+            int covered_vehicles_by_rus = (int)(segment_coverage * segment.vehicles_amount);
+            // System.out.println("%%%%");
+            // System.out.println(covered_vehicles_by_rus);
+            // System.out.println(rsu.getCapacity());
+            if (rsu.current_vehicles < rsu.getCapacity() && segment.vehicles_covered < segment.vehicles_amount) {
+              double uncovered_vehicles = 0;
+              if ((rsu.getCapacity() - rsu.current_vehicles) < (segment.vehicles_amount - segment.vehicles_covered)) {
+                uncovered_vehicles = rsu.getCapacity() - rsu.current_vehicles;
+              }else {
+                uncovered_vehicles = segment.vehicles_amount - segment.vehicles_covered;
+              }
+
+              if (uncovered_vehicles > covered_vehicles_by_rus){
+                rsu.current_vehicles  += covered_vehicles_by_rus;
+                segment.vehicles_covered += covered_vehicles_by_rus;
+              }else {
+                rsu.current_vehicles  += uncovered_vehicles;
+                segment.vehicles_covered += uncovered_vehicles;
+              }
+            }
           }
         }
       }
-
-      if (intersections > divitions * coverage_acceptance) {
-        // Segment is covered above 80%
-        intersected_segments.add(segment);
-      }
-
-      coverered_distance = intersections * module_section;
-
-      qos += segment.importance * coverered_distance;
     }
-    return intersected_segments;
+
+    for (Segment segment : segments) {
+        qos += segment.vehicles_covered;
+    }
   }
 
   private static void loadSegments() {
+    Point[] coordinates = new Point[coordinates_amount];
     double ideal_qos = 0;
 
     try{
-      // Load segments
-      File file = new File("alternatives/instances/montevideo.txt");
+      // Load coordinates
+      File file = new File("alternatives/coordinates.txt");
       FileInputStream input_stream = new FileInputStream(file);
       BufferedReader buffer = new BufferedReader(new InputStreamReader(input_stream));
 
       String line = null;
       String [] line_tokens = null;
       for (line = buffer.readLine(); line != null; line = buffer.readLine()){
+        line_tokens = line.split(" ");
+
+        Point point = new Point(Double.parseDouble(line_tokens[1]), Double.parseDouble(line_tokens[2]));
+        coordinates[Integer.parseInt(line_tokens[0])] = point;
+      }
+      buffer.close();
+
+      // Load segments
+      file = new File("alternatives/instances/normal.txt");
+      input_stream = new FileInputStream(file);
+      buffer = new BufferedReader(new InputStreamReader(input_stream));
+
+      line = null;
+      line_tokens = null;
+      for (line = buffer.readLine(); line != null; line = buffer.readLine()){
           line_tokens = line.split(" ");
 
-          double start_x = Double.parseDouble(line_tokens[1]);
-          double start_y = Double.parseDouble(line_tokens[2]);
-          double end_x = Double.parseDouble(line_tokens[3]);
-          double end_y = Double.parseDouble(line_tokens[4]);
-          int importance = Integer.parseInt(line_tokens[5]);
+          Point start = coordinates[Integer.parseInt(line_tokens[0])];
+          Point end = coordinates[Integer.parseInt(line_tokens[1])];
+          double vehicles_amount = Double.parseDouble(line_tokens[2]);
 
-          Point start = new Point(start_x, start_y);
-          Point end = new Point(end_x, end_y);
-          Segment segment = new Segment(start, end, importance);
+
+          ideal_qos += vehicles_amount;
+
+          Segment segment = new Segment(start, end, vehicles_amount);
           segments.add(segment);
           sorted_segments.add(segment);
-
-          ideal_qos += importance * Point.twoPointsDistance(start, end);
       }
       buffer.close();
 
@@ -315,7 +389,8 @@ public class Greedy {
       for (line = buffer.readLine(); line != null; line = buffer.readLine()){
         line_tokens = line.split(" ");
 
-        rsu_types.add(new RsuType(Double.parseDouble(line_tokens[2]), Double.parseDouble(line_tokens[3])));
+        RsuType rsu_type = new RsuType(Double.parseDouble(line_tokens[2]), Double.parseDouble(line_tokens[3]), Double.parseDouble(line_tokens[4]));
+        rsu_types.add(rsu_type);
       }
       buffer.close();
 

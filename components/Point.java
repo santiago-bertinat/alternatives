@@ -20,6 +20,18 @@ public class Point {
     return (dist);
   }
 
+  public double pointToSegmentDistance(Segment segment) {
+    // Using Heron formula
+    double dps, dpe, dse;
+    dps = twoPointsDistance(this, segment.start);
+    dpe = twoPointsDistance(this, segment.end);
+    dse = segment.distance();
+
+    double s = (dps + dpe + dse) / (double)2;
+    double area= Math.sqrt(s*(s-dps)*(s-dpe)*(s-dse));
+    return 2*area/(double)dse;
+  }
+
   private static double deg2rad(double deg) {
     return (deg * Math.PI / 180.0);
   }
