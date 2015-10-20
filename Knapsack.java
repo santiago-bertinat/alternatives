@@ -58,12 +58,6 @@ public class Knapsack {
           rsus_grid[i][j].addAll(rsus_grid[i-1][j]);
         } else {
           double previous_qos = qos_grid[i-1][j];
-          // System.out.print("iteration : ");
-          // System.out.print(i);
-          // System.out.print(" , ");
-          // System.out.println(j);
-          // System.out.print("available_budget: ");
-          // System.out.println(available_budget);
 
           Rsu rsu_0 = new Rsu(rsu_center, rsu_types.get(0));
           Rsu rsu_1 = new Rsu(rsu_center, rsu_types.get(1));
@@ -101,7 +95,7 @@ public class Knapsack {
       System.out.println(qos_grid[i][cost_intervals]);
     }
 
-    saveResults("alternatives/qos_results.txt", qos_grid, rsus_grid);
+    saveResults(qos_grid, rsus_grid);
     saveResultsForAE();
 
     System.out.println("RESULT: ");
@@ -115,9 +109,9 @@ public class Knapsack {
     System.out.println(String.valueOf(cost));
   }
 
-  private static void saveResults(String file_location, double[][] qos_grid,  ArrayList<Rsu>[][] rsus_grid) {
+  private static void saveResults(double[][] qos_grid,  ArrayList<Rsu>[][] rsus_grid) {
     try {
-      File file = new File(file_location);
+      File file = new File("alternatives/knapsack_max_result.txt");
 
       // if file doesnt exists, then create it
       if (!file.exists()) {
@@ -132,6 +126,28 @@ public class Knapsack {
         buffer.write(String.valueOf(rsu.center.y) + ',');
         buffer.write(String.valueOf(rsu.radius) + ',');
         buffer.write(String.valueOf(rsu.rsu_type.cost) + '\n');
+      }
+
+      buffer.close();
+
+      file = new File("alternatives/knapsack_results.txt");
+
+      // if file doesnt exists, then create it
+      if (!file.exists()) {
+        file.createNewFile();
+      }
+
+      file_writer = new FileWriter(file.getAbsoluteFile());
+      buffer = new BufferedWriter(file_writer);
+
+      for (int i = 0; i <= cost_intervals; i++) {
+        buffer.write(String.valueOf(qos_grid[segments.size()][i]) + " , ");
+        double cost = 0;
+        for (Rsu rsu : rsus_grid[segments.size()][i]) {
+          if (rsu.rsu_type != null)
+            cost += rsu.rsu_type.cost;
+        }
+        buffer.write(String.valueOf(cost) + '\n');
       }
 
       buffer.close();
