@@ -59,9 +59,9 @@ public class Knapsack {
         } else {
           double previous_qos = qos_grid[i-1][j];
 
-          Rsu rsu_0 = new Rsu(rsu_center, rsu_types.get(0));
-          Rsu rsu_1 = new Rsu(rsu_center, rsu_types.get(1));
-          Rsu rsu_2 = new Rsu(rsu_center, rsu_types.get(2));
+          Rsu rsu_0 = new Rsu(rsu_center, rsu_types.get(0), i - 1);
+          Rsu rsu_1 = new Rsu(rsu_center, rsu_types.get(1), i - 1);
+          Rsu rsu_2 = new Rsu(rsu_center, rsu_types.get(2), i - 1);
 
           int current_money_index = (int)((available_budget - rsu_0.rsu_type.cost) / cost_interval_value);
           ArrayList<Rsu> previous_rsus_0 = rsus_grid[i-1][current_money_index];
@@ -96,7 +96,7 @@ public class Knapsack {
     }
 
     saveResults(qos_grid, rsus_grid);
-    saveResultsForAE();
+    saveResultsForAE(rsus_grid);
 
     System.out.println("RESULT: ");
     System.out.println(qos_grid[segments.size()][cost_intervals]);
@@ -157,33 +157,43 @@ public class Knapsack {
     }
   }
 
-  private static void saveResultsForAE() {
+  private static void saveResultsForAE(ArrayList<Rsu>[][] rsus_grid) {
     try {
+      File file = new File("alternatives/AE_initialization.txt");
 
-      BufferedWriter buffer_initializations = new BufferedWriter(new FileWriter("alternatives/AE_initialization.txt", true));
-      BufferedWriter buffer_results = new BufferedWriter(new FileWriter("alternatives/objectives_results.txt", true));
-
-      double cost = 0;
-      for (Rsu rsu : rsus_grid[segments.size()][cost_intervals]) {
-        if (rsu.rsu_type != null)
-          cost += rsu.rsu_type.cost;
+      // if file doesnt exists, then create it
+      if (!file.exists()) {
+        file.createNewFile();
       }
-      buffer_results.write(qos + ", " + cost + "\n");
-      buffer_results.close();
 
-      for (Segment segment : segments) {
-        if (segment.rsu != null) {
-          RsuType rsu_type = segment.rsu.rsu_type;
-          int index_of_type = rsu_types.indexOf(rsu_type) + 1;
-          double position = Point.twoPointsDistance(segment.start, segment.rsu.center) / segment.distance;
-          buffer_initializations.write(String.valueOf((float)(index_of_type + position)) + ",");
-        } else {
-          buffer_initializations.write("0,");
+      FileWriter file_writer = new FileWriter(file.getAbsoluteFile());
+      BufferedWriter buffer = new BufferedWriter(file_writer);
+
+
+      for (int i = 0; i <= cost_intervals; i++) {
+        // System.out.println("######");
+        Rsu[] sorted_rsus = new Rsu[segments.size()];
+        for (Rsu rsu : rsus_grid[segments.size()][i]) {
+          // System.out.println(rsu.segment_id);
+          sorted_rsus[rsu.segment_id] = rsu;
         }
+
+        for (int j = 0; j < segments.size(); j++) {
+          Segment segment = segments.get(j);
+          Rsu rsu = sorted_rsus[j];
+          if (rsu != null) {
+            RsuType rsu_type = rsu.rsu_type;
+            int index_of_type = rsu_types.indexOf(rsu_type) + 1;
+            double position = Point.twoPointsDistance(segment.start, rsu.center) / segment.distance;
+            buffer.write(String.valueOf((float)(index_of_type + position)) + ",");
+          } else {
+            buffer.write("0,");
+          }
+        }
+        buffer.write('\n');
       }
 
-      buffer_initializations.write("\n");
-      buffer_initializations.close();
+      buffer.close();
 
     } catch (IOException e) {
       e.printStackTrace();
