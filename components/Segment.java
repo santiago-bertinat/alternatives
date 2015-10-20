@@ -9,23 +9,21 @@ public class Segment implements Comparable<Segment> {
   public Point start;
   public Point end;
   public double vehicles_amount;
+  public double distance;
   public int vehicles_covered;
   public Rsu rsu;
 
-  public Segment(Point start, Point end, double vehicles_amount) {
+  public Segment(Point start, Point end, double distance, double vehicles_amount) {
     this.start = start;
     this.end = end;
     this.vehicles_amount = vehicles_amount;
     this.vehicles_covered = 0;
+    this.distance = distance;
   }
 
   public Segment(Point start, Point end) {
     this.start = start;
     this.end = end;
-  }
-
-  public double distance() {
-    return Point.twoPointsDistance(start, end);
   }
 
   public int compareTo(Segment segment) {

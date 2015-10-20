@@ -10,12 +10,12 @@ public class Point {
   }
 
   public static double twoPointsDistance(Point point1, Point point2){
-    double theta = point1.x - point2.x;
-    double dist = Math.sin(deg2rad(point1.y)) * Math.sin(deg2rad(point2.y)) + Math.cos(deg2rad(point1.y)) * Math.cos(deg2rad(point2.y)) * Math.cos(deg2rad(theta));
-    dist = Math.acos(dist);
-    dist = rad2deg(dist);
-    dist = dist * 60 * 1.1515;
-    dist = dist * 1.609344 * 1000;
+    double d2r = Math.PI / 180.0;
+    double dLat = deg2rad((point1.x - point2.x));
+    double dLon = deg2rad((point1.y - point2.y));
+
+    double x = (dLon) * Math.cos(deg2rad((point1.x + point2.x)/2));
+    double dist = Math.sqrt(x*x + dLat*dLat) * 6371000;
 
     return (dist);
   }
@@ -25,7 +25,7 @@ public class Point {
     double dps, dpe, dse;
     dps = twoPointsDistance(this, segment.start);
     dpe = twoPointsDistance(this, segment.end);
-    dse = segment.distance();
+    dse = segment.distance;
 
     double s = (dps + dpe + dse) / (double)2;
     double area= Math.sqrt(s*(s-dps)*(s-dpe)*(s-dse));

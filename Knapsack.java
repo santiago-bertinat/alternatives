@@ -20,7 +20,7 @@ public class Knapsack {
   public static double qos = 0;
   public static int cost_interval_value = 200;
   public static int cost_intervals = 130;
-  public static int coordinates_amount = 121;
+  public static int coordinates_amount = 124;
   public static ArrayList<Rsu>[][] rsus_grid;
 
   public static void main(String[] args) {
@@ -50,7 +50,6 @@ public class Knapsack {
       Segment segment = segments.get(i - 1);
       Random generator = new Random();
       double rsu_position = generator.nextDouble();
-      System.out.println(i);
       Point rsu_center = rsuPosition(segment, rsu_position);
       for (int j = 1; j <= cost_intervals; j++) {
         int available_budget = j * cost_interval_value;
@@ -99,6 +98,7 @@ public class Knapsack {
           }
         }
       }
+      System.out.println(qos_grid[i][cost_intervals]);
     }
 
     saveResults("alternatives/qos_results.txt", qos_grid, rsus_grid);
@@ -127,16 +127,11 @@ public class Knapsack {
       FileWriter file_writer = new FileWriter(file.getAbsoluteFile());
       BufferedWriter buffer = new BufferedWriter(file_writer);
 
-      buffer.write("Cost,Quality of Service" + '\n');
-      for (int i = 1; i <= cost_intervals; i++) {
-        double cost = 0;
-        for (Rsu rsu : rsus_grid[segments.size()][i]) {
-          if (rsu.rsu_type != null)
-            cost += rsu.rsu_type.cost;
-        }
-        buffer.write(String.valueOf((int)cost) + ',');
-        double qos_for_cost = qos_grid[segments.size()][i];
-        buffer.write(String.valueOf((int)qos_for_cost) + '\n');
+      for (Rsu rsu : rsus_grid[segments.size()][cost_intervals]) {
+        buffer.write(String.valueOf(rsu.center.x) + ',');
+        buffer.write(String.valueOf(rsu.center.y) + ',');
+        buffer.write(String.valueOf(rsu.radius) + ',');
+        buffer.write(String.valueOf(rsu.rsu_type.cost) + '\n');
       }
 
       buffer.close();
@@ -164,7 +159,7 @@ public class Knapsack {
         if (segment.rsu != null) {
           RsuType rsu_type = segment.rsu.rsu_type;
           int index_of_type = rsu_types.indexOf(rsu_type) + 1;
-          double position = Point.twoPointsDistance(segment.start, segment.rsu.center) / segment.distance();
+          double position = Point.twoPointsDistance(segment.start, segment.rsu.center) / segment.distance;
           buffer_initializations.write(String.valueOf((float)(index_of_type + position)) + ",");
         } else {
           buffer_initializations.write("0,");
@@ -203,8 +198,13 @@ public class Knapsack {
   }
 
   private static double getQos(ArrayList<Rsu> previous_road_side_units, Rsu new_road_side_unit) {
-    ArrayList<Segment> intersected_segments = new ArrayList<Segment>();
     qos = 0;
+
+    // Remove previous calculations
+    for (Segment segment : segments){
+      segment.vehicles_covered = 0;
+    }
+
     ArrayList<Rsu> road_side_units = new ArrayList<Rsu>();
     if (previous_road_side_units != null) {
       road_side_units.addAll(previous_road_side_units);
@@ -212,11 +212,15 @@ public class Knapsack {
     road_side_units.add(new_road_side_unit);
 
     for (Rsu rsu : road_side_units){
+      rsu.current_vehicles = 0;
+    }
+
+    for (Rsu rsu : road_side_units){
       if (rsu != null) {
 
         for (Segment segment : segments){
           double segment_coverage = 0;
-          double segment_length = segment.distance();
+          double segment_length = segment.distance;
 
           // If rsu i belongs to k segment
           if (rsu == segment.rsu){
@@ -260,7 +264,7 @@ public class Knapsack {
               double m = rsu.center.pointToSegmentDistance(segment);
               double dAC = Point.twoPointsDistance(rsu.center, segment.start);
               double dBC = Point.twoPointsDistance(rsu.center, segment.end);
-              double dAB = segment.distance();
+              double dAB = segment.distance;
               double dAQ = Math.sqrt(Math.pow(dAC, 2) - Math.pow(m, 2));
               double dQB = Math.sqrt(Math.pow(dBC, 2) - Math.pow(m, 2));
               if (dAQ < dAB && dQB < dAB){
@@ -271,24 +275,15 @@ public class Knapsack {
             }
 
             int covered_vehicles_by_rus = (int)(segment_coverage * segment.vehicles_amount);
-            // System.out.println("%%%%");
-            // System.out.println(covered_vehicles_by_rus);
-            // System.out.println(rsu.getCapacity());
+
             if (rsu.current_vehicles < rsu.getCapacity() && segment.vehicles_covered < segment.vehicles_amount) {
               double uncovered_vehicles = 0;
-              if ((rsu.getCapacity() - rsu.current_vehicles) < (segment.vehicles_amount - segment.vehicles_covered)) {
-                uncovered_vehicles = rsu.getCapacity() - rsu.current_vehicles;
-              }else {
-                uncovered_vehicles = segment.vehicles_amount - segment.vehicles_covered;
-              }
+              double rsu_actual_capacity = rsu.getCapacity() - rsu.current_vehicles;
+              double segment_uncovered_vehicles = segment.vehicles_amount - segment.vehicles_covered;
 
-              if (uncovered_vehicles > covered_vehicles_by_rus){
-                rsu.current_vehicles  += covered_vehicles_by_rus;
-                segment.vehicles_covered += covered_vehicles_by_rus;
-              }else {
-                rsu.current_vehicles  += uncovered_vehicles;
-                segment.vehicles_covered += uncovered_vehicles;
-              }
+              uncovered_vehicles = Math.min(Math.min(rsu_actual_capacity, segment_uncovered_vehicles), covered_vehicles_by_rus);
+              rsu.current_vehicles  += uncovered_vehicles;
+              segment.vehicles_covered += uncovered_vehicles;
             }
           }
         }
@@ -302,43 +297,27 @@ public class Knapsack {
   }
 
   private static void loadSegments() {
-    Point[] coordinates = new Point[coordinates_amount];
     double ideal_qos = 0;
 
     try{
-      // Load coordinates
-      File file = new File("alternatives/coordinates.txt");
+      // Load segments
+      File file = new File("alternatives/instances/normal.txt");
       FileInputStream input_stream = new FileInputStream(file);
       BufferedReader buffer = new BufferedReader(new InputStreamReader(input_stream));
 
       String line = null;
       String [] line_tokens = null;
       for (line = buffer.readLine(); line != null; line = buffer.readLine()){
-        line_tokens = line.split(" ");
+          line_tokens = line.split(",");
 
-        Point point = new Point(Double.parseDouble(line_tokens[1]), Double.parseDouble(line_tokens[2]));
-        coordinates[Integer.parseInt(line_tokens[0])] = point;
-      }
-      buffer.close();
-
-      // Load segments
-      file = new File("alternatives/instances/normal.txt");
-      input_stream = new FileInputStream(file);
-      buffer = new BufferedReader(new InputStreamReader(input_stream));
-
-      line = null;
-      line_tokens = null;
-      for (line = buffer.readLine(); line != null; line = buffer.readLine()){
-          line_tokens = line.split(" ");
-
-          Point start = coordinates[Integer.parseInt(line_tokens[0])];
-          Point end = coordinates[Integer.parseInt(line_tokens[1])];
-          double vehicles_amount = Double.parseDouble(line_tokens[2]);
-
+          Point start = new Point(Double.parseDouble(line_tokens[0]), Double.parseDouble(line_tokens[1]));
+          Point end = new Point(Double.parseDouble(line_tokens[2]), Double.parseDouble(line_tokens[3]));
+          double vehicles_amount = Double.parseDouble(line_tokens[5]);
+          double distance = Double.parseDouble(line_tokens[4]);
 
           ideal_qos += vehicles_amount;
 
-          Segment segment = new Segment(start, end, vehicles_amount);
+          Segment segment = new Segment(start, end, distance, vehicles_amount);
           segments.add(segment);
       }
       buffer.close();

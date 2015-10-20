@@ -20,7 +20,7 @@ public class Greedy {
   public static ArrayList<RsuType> rsu_types = new ArrayList<RsuType>();
   public static double qos = 0;
   public static double coverage_stop = 0.9;
-  public static int coordinates_amount = 121;
+  public static int coordinates_amount = 124;
 
   public static void main(String[] args) {
     loadSegments();
@@ -30,8 +30,9 @@ public class Greedy {
 
     boolean every_segment_covered = false;
     while (!every_segment_covered) {
-      // Ascending order
+
       int i = sorted_segments.size() - 1;
+      // Ascending order
       Collections.sort(sorted_segments);
       Segment segment = sorted_segments.get(i);
 
@@ -39,6 +40,7 @@ public class Greedy {
       while((segment.rsu != null || segment.vehicles_covered == segment.vehicles_amount) && i > 0) {
         i--;
         segment = sorted_segments.get(i);
+
       }
 
       if (i > 0) {
@@ -75,7 +77,6 @@ public class Greedy {
       double[] qos_loss = new double[segments.size()];
       double old_qos = qos;
 
-      System.out.println("WHILE");
       for (int i = 0; i < sorted_segments.size(); i++) {
         Segment segment = sorted_segments.get(i);
 
@@ -111,21 +112,17 @@ public class Greedy {
         }
       }
 
-      System.out.println(min);
       Segment segment = sorted_segments.get(min);
       RsuType rsu_type = segment.rsu.rsu_type;
       int index_of_type = rsu_types.indexOf(rsu_type);
 
       if (index_of_type == 0) {
-        System.out.println("sacamos antena");
         segment.rsu = null;
       }else {
-        System.out.println("bajamos");
         segment.rsu.setRsuType(rsu_types.get(index_of_type - 1));
       }
 
       calculateQos();
-      System.out.println(qos);
     }
 
     System.out.println("RESULT: ");
@@ -190,7 +187,7 @@ public class Greedy {
         if (segment.rsu != null) {
           RsuType rsu_type = segment.rsu.rsu_type;
           int index_of_type = rsu_types.indexOf(rsu_type) + 1;
-          double position = Point.twoPointsDistance(segment.start, segment.rsu.center) / segment.distance();
+          double position = Point.twoPointsDistance(segment.start, segment.rsu.center) / segment.distance;
           buffer_initializations.write(String.valueOf((float)(index_of_type + position)) + ",");
         } else {
           buffer_initializations.write("0,");
@@ -243,7 +240,7 @@ public class Greedy {
         Rsu rsu = rsu_segment.rsu;
         for (Segment segment : segments){
           double segment_coverage = 0;
-          double segment_length = segment.distance();
+          double segment_length = segment.distance;
 
           // If rsu i belongs to k segment
           if (rsu_segment == segment){
@@ -287,7 +284,7 @@ public class Greedy {
               double m = rsu.center.pointToSegmentDistance(segment);
               double dAC = Point.twoPointsDistance(rsu.center, segment.start);
               double dBC = Point.twoPointsDistance(rsu.center, segment.end);
-              double dAB = segment.distance();
+              double dAB = segment.distance;
               double dAQ = Math.sqrt(Math.pow(dAC, 2) - Math.pow(m, 2));
               double dQB = Math.sqrt(Math.pow(dBC, 2) - Math.pow(m, 2));
               if (dAQ < dAB && dQB < dAB){
@@ -298,24 +295,15 @@ public class Greedy {
             }
 
             int covered_vehicles_by_rus = (int)(segment_coverage * segment.vehicles_amount);
-            // System.out.println("%%%%");
-            // System.out.println(covered_vehicles_by_rus);
-            // System.out.println(rsu.getCapacity());
+
             if (rsu.current_vehicles < rsu.getCapacity() && segment.vehicles_covered < segment.vehicles_amount) {
               double uncovered_vehicles = 0;
-              if ((rsu.getCapacity() - rsu.current_vehicles) < (segment.vehicles_amount - segment.vehicles_covered)) {
-                uncovered_vehicles = rsu.getCapacity() - rsu.current_vehicles;
-              }else {
-                uncovered_vehicles = segment.vehicles_amount - segment.vehicles_covered;
-              }
+              double rsu_actual_capacity = rsu.getCapacity() - rsu.current_vehicles;
+              double segment_uncovered_vehicles = segment.vehicles_amount - segment.vehicles_covered;
 
-              if (uncovered_vehicles > covered_vehicles_by_rus){
-                rsu.current_vehicles  += covered_vehicles_by_rus;
-                segment.vehicles_covered += covered_vehicles_by_rus;
-              }else {
-                rsu.current_vehicles  += uncovered_vehicles;
-                segment.vehicles_covered += uncovered_vehicles;
-              }
+              uncovered_vehicles = Math.min(Math.min(rsu_actual_capacity, segment_uncovered_vehicles), covered_vehicles_by_rus);
+              rsu.current_vehicles  += uncovered_vehicles;
+              segment.vehicles_covered += uncovered_vehicles;
             }
           }
         }
@@ -328,43 +316,27 @@ public class Greedy {
   }
 
   private static void loadSegments() {
-    Point[] coordinates = new Point[coordinates_amount];
     double ideal_qos = 0;
 
     try{
-      // Load coordinates
-      File file = new File("alternatives/coordinates.txt");
+      // Load segments
+      File file = new File("alternatives/instances/normal.txt");
       FileInputStream input_stream = new FileInputStream(file);
       BufferedReader buffer = new BufferedReader(new InputStreamReader(input_stream));
 
       String line = null;
       String [] line_tokens = null;
       for (line = buffer.readLine(); line != null; line = buffer.readLine()){
-        line_tokens = line.split(" ");
+          line_tokens = line.split(",");
 
-        Point point = new Point(Double.parseDouble(line_tokens[1]), Double.parseDouble(line_tokens[2]));
-        coordinates[Integer.parseInt(line_tokens[0])] = point;
-      }
-      buffer.close();
-
-      // Load segments
-      file = new File("alternatives/instances/normal.txt");
-      input_stream = new FileInputStream(file);
-      buffer = new BufferedReader(new InputStreamReader(input_stream));
-
-      line = null;
-      line_tokens = null;
-      for (line = buffer.readLine(); line != null; line = buffer.readLine()){
-          line_tokens = line.split(" ");
-
-          Point start = coordinates[Integer.parseInt(line_tokens[0])];
-          Point end = coordinates[Integer.parseInt(line_tokens[1])];
-          double vehicles_amount = Double.parseDouble(line_tokens[2]);
-
+          Point start = new Point(Double.parseDouble(line_tokens[0]), Double.parseDouble(line_tokens[1]));
+          Point end = new Point(Double.parseDouble(line_tokens[2]), Double.parseDouble(line_tokens[3]));
+          double vehicles_amount = Double.parseDouble(line_tokens[5]);
+          double distance = Double.parseDouble(line_tokens[4]);
 
           ideal_qos += vehicles_amount;
 
-          Segment segment = new Segment(start, end, vehicles_amount);
+          Segment segment = new Segment(start, end, distance, vehicles_amount);
           segments.add(segment);
           sorted_segments.add(segment);
       }
