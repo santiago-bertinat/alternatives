@@ -92,7 +92,15 @@ public class Knapsack {
           }
         }
       }
-      System.out.println(qos_grid[i][cost_intervals]);
+    }
+
+    for (int i = 1; i <= cost_intervals; i++) {
+      System.out.println("FIN INTERVALO");
+      System.out.println(qos_grid[segments.size()][i]);
+      System.out.println(getQos(rsus_grid[segments.size()][i], null));
+      for (Rsu aux : rsus_grid[segments.size()][i]) {
+        System.out.println(aux.segment_id);
+      }
     }
 
     saveResults(qos_grid, rsus_grid);
@@ -235,88 +243,91 @@ public class Knapsack {
     if (previous_road_side_units != null) {
       road_side_units.addAll(previous_road_side_units);
     }
-    road_side_units.add(new_road_side_unit);
+    if (new_road_side_unit != null) {
+      road_side_units.add(new_road_side_unit);
+    }
 
+    System.out.println("QOS");
     for (Rsu rsu : road_side_units){
+      System.out.println(rsu.segment_id);
       rsu.current_vehicles = 0;
     }
 
     for (Rsu rsu : road_side_units){
       if (rsu != null) {
-
         for (Segment segment : segments){
           double segment_coverage = 0;
           double segment_length = segment.distance;
 
-          // If rsu i belongs to k segment
-          if (rsu == segment.rsu){
-            segment_coverage = segment_length / rsu.radius;
-          }else {
-            boolean start_inside = rsu.radius > Point.twoPointsDistance(rsu.center, segment.start);
-            boolean end_inside = rsu.radius > Point.twoPointsDistance(rsu.center, segment.end);
 
-            if (start_inside && end_inside){
-              segment_coverage = segment_length;
+          boolean start_inside = rsu.radius > Point.twoPointsDistance(rsu.center, segment.start);
+          boolean end_inside = rsu.radius > Point.twoPointsDistance(rsu.center, segment.end);
+
+          if (start_inside && end_inside){
+            segment_coverage = 1;
+          }
+          else if (start_inside || end_inside){
+            //Hay un punto adentro y uno afuera
+            double alpha;
+            double center_extreme_distance;
+
+            if (start_inside){
+              alpha = Segment.angleBetweenLines(new Segment(rsu.center, segment.start), segment);
+              center_extreme_distance = Point.twoPointsDistance(rsu.center, segment.start);
+            }else{
+              alpha = Segment.angleBetweenLines(new Segment(rsu.center, segment.end), new Segment(segment.end, segment.start));
+              center_extreme_distance = Point.twoPointsDistance(rsu.center, segment.end);
             }
-            else if (start_inside || end_inside){
-              //Hay un punto adentro y uno afuera
-              double alpha;
-              double center_extreme_distance;
 
+            if (alpha != 0){
+              double beta = Math.asin(center_extreme_distance * Math.sin(alpha) / (double)rsu.radius);
+              segment_coverage = (Math.sin(Math.PI - alpha - beta) * rsu.radius / Math.sin(alpha)) / segment_length;
+            }
+            else{
+              //Los 3 puntos están alineados
               if (start_inside){
-                alpha = Segment.angleBetweenLines(new Segment(rsu.center, segment.start), segment);
-                center_extreme_distance = Point.twoPointsDistance(rsu.center, segment.start);
-              }else{
-                alpha = Segment.angleBetweenLines(new Segment(rsu.center, segment.end), segment);
-                center_extreme_distance = Point.twoPointsDistance(rsu.center, segment.end);
-              }
-
-              if (alpha != 0){
-                double beta = Math.asin(center_extreme_distance * Math.sin(alpha) / (double)rsu.radius);
-                segment_coverage = segment_length / (Math.sin(Math.PI - alpha - beta) * rsu.radius / Math.sin(alpha));
+                segment_coverage = (rsu.radius - Point.twoPointsDistance(rsu.center, segment.start))/ segment_length;
               }
               else{
-                //Los 3 puntos están alineados
-                if (start_inside){
-                  segment_coverage = segment_length / (rsu.radius - Point.twoPointsDistance(rsu.center, segment.start));
-                }
-                else{
-                  segment_coverage = segment_length / (rsu.radius - Point.twoPointsDistance(rsu.center, segment.end));
-                }
+                segment_coverage = (rsu.radius - Point.twoPointsDistance(rsu.center, segment.end)) / segment_length;
               }
             }
-            else if (rsu.center.pointToSegmentDistance(segment) < rsu.radius){
-              //La recta intersecta el circulo, falta ver si el segmento tambien
-              double m = rsu.center.pointToSegmentDistance(segment);
-              double dAC = Point.twoPointsDistance(rsu.center, segment.start);
-              double dBC = Point.twoPointsDistance(rsu.center, segment.end);
-              double dAB = segment.distance;
-              double dAQ = Math.sqrt(Math.pow(dAC, 2) - Math.pow(m, 2));
-              double dQB = Math.sqrt(Math.pow(dBC, 2) - Math.pow(m, 2));
-              if (dAQ < dAB && dQB < dAB){
-                  //El segmento intersecta el circulo
-                  double lambda = Math.sqrt(Math.pow(rsu.radius,2) - Math.pow(m,2));
-                  segment_coverage = segment_length / (2 * lambda);
-              }
+          }
+          else if (rsu.center.pointToSegmentDistance(segment) < rsu.radius){
+            //La recta intersecta el circulo, falta ver si el segmento tambien
+            double m = rsu.center.pointToSegmentDistance(segment);
+            double dAC = Point.twoPointsDistance(rsu.center, segment.start);
+            double dBC = Point.twoPointsDistance(rsu.center, segment.end);
+            double dAB = segment.distance;
+            double dAQ = Math.sqrt(Math.pow(dAC, 2) - Math.pow(m, 2));
+            double dQB = Math.sqrt(Math.pow(dBC, 2) - Math.pow(m, 2));
+            if (dAQ < dAB && dQB < dAB){
+                //El segmento intersecta el circulo
+                double lambda = Math.sqrt(Math.pow(rsu.radius,2) - Math.pow(m,2));
+                segment_coverage = (2 * lambda) / segment_length;
             }
+          }
 
-            int covered_vehicles_by_rus = (int)(segment_coverage * segment.vehicles_amount);
+          int covered_vehicles_by_rus = (int)(segment_coverage * segment.vehicles_amount);
 
-            if (rsu.current_vehicles < rsu.getCapacity() && segment.vehicles_covered < segment.vehicles_amount) {
-              double uncovered_vehicles = 0;
-              double rsu_actual_capacity = rsu.getCapacity() - rsu.current_vehicles;
-              double segment_uncovered_vehicles = segment.vehicles_amount - segment.vehicles_covered;
+          if (rsu.current_vehicles < rsu.getCapacity() && segment.vehicles_covered < segment.vehicles_amount) {
+            double uncovered_vehicles = 0;
+            double rsu_actual_capacity = rsu.getCapacity() - rsu.current_vehicles;
+            double segment_uncovered_vehicles = segment.vehicles_amount - segment.vehicles_covered;
 
-              uncovered_vehicles = Math.min(Math.min(rsu_actual_capacity, segment_uncovered_vehicles), covered_vehicles_by_rus);
-              rsu.current_vehicles  += uncovered_vehicles;
-              segment.vehicles_covered += uncovered_vehicles;
-            }
+            uncovered_vehicles = Math.min(Math.min(rsu_actual_capacity, segment_uncovered_vehicles), covered_vehicles_by_rus);
+            rsu.current_vehicles  += uncovered_vehicles;
+            segment.vehicles_covered += uncovered_vehicles;
           }
         }
       }
     }
     for (Segment segment : segments) {
         qos += segment.vehicles_covered;
+        System.out.println("%%%");
+        System.out.println(segments.indexOf(segment));
+        System.out.println(segment.vehicles_covered);
+        System.out.println(segment.vehicles_amount);
     }
 
     return qos;
@@ -339,7 +350,7 @@ public class Knapsack {
           Point start = new Point(Double.parseDouble(line_tokens[0]), Double.parseDouble(line_tokens[1]));
           Point end = new Point(Double.parseDouble(line_tokens[2]), Double.parseDouble(line_tokens[3]));
           double vehicles_amount = Double.parseDouble(line_tokens[5]);
-          double distance = Double.parseDouble(line_tokens[4]);
+          double distance = Point.twoPointsDistance(start, end);
 
           ideal_qos += vehicles_amount;
 
