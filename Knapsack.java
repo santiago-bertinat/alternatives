@@ -94,15 +94,6 @@ public class Knapsack {
       }
     }
 
-    for (int i = 1; i <= cost_intervals; i++) {
-      System.out.println("FIN INTERVALO");
-      System.out.println(qos_grid[segments.size()][i]);
-      System.out.println(getQos(rsus_grid[segments.size()][i], null));
-      for (Rsu aux : rsus_grid[segments.size()][i]) {
-        System.out.println(aux.segment_id);
-      }
-    }
-
     saveResults(qos_grid, rsus_grid);
     saveResultsForAE(rsus_grid);
 
@@ -179,10 +170,8 @@ public class Knapsack {
 
 
       for (int i = 0; i <= cost_intervals; i++) {
-        // System.out.println("######");
         Rsu[] sorted_rsus = new Rsu[segments.size()];
         for (Rsu rsu : rsus_grid[segments.size()][i]) {
-          // System.out.println(rsu.segment_id);
           sorted_rsus[rsu.segment_id] = rsu;
         }
 
@@ -247,9 +236,7 @@ public class Knapsack {
       road_side_units.add(new_road_side_unit);
     }
 
-    System.out.println("QOS");
     for (Rsu rsu : road_side_units){
-      System.out.println(rsu.segment_id);
       rsu.current_vehicles = 0;
     }
 
@@ -324,10 +311,6 @@ public class Knapsack {
     }
     for (Segment segment : segments) {
         qos += segment.vehicles_covered;
-        System.out.println("%%%");
-        System.out.println(segments.indexOf(segment));
-        System.out.println(segment.vehicles_covered);
-        System.out.println(segment.vehicles_amount);
     }
 
     return qos;
@@ -347,8 +330,8 @@ public class Knapsack {
       for (line = buffer.readLine(); line != null; line = buffer.readLine()){
           line_tokens = line.split(",");
 
-          Point start = new Point(Double.parseDouble(line_tokens[0]), Double.parseDouble(line_tokens[1]));
-          Point end = new Point(Double.parseDouble(line_tokens[2]), Double.parseDouble(line_tokens[3]));
+          Point start = new Point(Double.parseDouble(line_tokens[1]), Double.parseDouble(line_tokens[0]));
+          Point end = new Point(Double.parseDouble(line_tokens[3]), Double.parseDouble(line_tokens[2]));
           double vehicles_amount = Double.parseDouble(line_tokens[5]);
           double distance = Point.twoPointsDistance(start, end);
 

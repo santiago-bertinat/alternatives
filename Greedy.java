@@ -324,8 +324,8 @@ public class Greedy {
       for (line = buffer.readLine(); line != null; line = buffer.readLine()){
           line_tokens = line.split(",");
 
-          Point start = new Point(Double.parseDouble(line_tokens[0]), Double.parseDouble(line_tokens[1]));
-          Point end = new Point(Double.parseDouble(line_tokens[2]), Double.parseDouble(line_tokens[3]));
+          Point start = new Point(Double.parseDouble(line_tokens[1]), Double.parseDouble(line_tokens[0]));
+          Point end = new Point(Double.parseDouble(line_tokens[3]), Double.parseDouble(line_tokens[2]));
           double vehicles_amount = Double.parseDouble(line_tokens[5]);
           double distance = Point.twoPointsDistance(start, end);
 
